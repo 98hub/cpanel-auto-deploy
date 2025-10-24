@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout Repository Code
-        uses: actions:checkout@v4
+        uses: actions/checkout@v4
 
       - name: SSH and Remote Next.js Deployment
         env:
