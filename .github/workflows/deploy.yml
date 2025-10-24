@@ -27,41 +27,41 @@ jobs:
           ls -ld .next/standalone || true # Hanya cek direktori induk
           ls -R .next/static || true
 
-      - name: 4a. Transfer File Server (Standalone & Config)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
-          rm: false
-          debug: true
-          # Hanya transfer server file dan folder standalone di sini
-          source: |
-            .next/standalone
-            package.json
-            app.js
-          target: ${{ secrets.DEPLOY_DIR }}
-
-      - name: 4b. Transfer File Statis (Static & Public)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
-          # rm: false di sini karena kita ingin membersihkan file di Langkah 5
-          rm: false
-          debug: true
-          # Hanya transfer aset statis di sini
-          source: |
-            .next/static
+      - name: 4. Buat Deployment Tarball
+        run: |
+          set -e # Hentikan eksekusi jika perintah tar gagal
+          echo "Membuat deployment tarball: deployment.tar.gz"
+          # Membuat tarball berisi semua yang dibutuhkan untuk standalone deployment
+          # --exclude='node_modules' (node_modules di root tidak perlu ditransfer)
+          tar -zcf deployment.tar.gz \
+            --exclude='node_modules' \
+            .next/standalone \
+            .next/static \
+            package.json \
+            app.js \
             public
+          ls -l deployment.tar.gz # Verifikasi file dibuat dan ukurannya > 0
+
+      - name: 4b. Verifikasi Tarball Sebelum Transfer
+        run: |
+          echo "Isi direktori kerja sebelum SCP:"
+          ls -l deployment.tar.gz
+
+      - name: 5. Transfer File (Single Tarball) ke cPanel (via SCP)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: 22
+          rm: false
+          debug: true
+          # HANYA transfer satu file: tarball yang sudah kita buat
+          source: deployment.tar.gz
           target: ${{ secrets.DEPLOY_DIR }}
 
-      - name: 5. Eksekusi Perintah di cPanel (via SSH)
+      - name: 6. Eksekusi Perintah di cPanel (via SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -75,8 +75,12 @@ jobs:
             source ${{ secrets.NODE_ENV_PATH }}
             cd ${{ secrets.DEPLOY_DIR }}
 
-            # 2. EKSTRAKSI DAN PEMINDAHAN KONTEN (Langkah Kritis)
-            # Karena SCP menyalin folder .next/standalone, kita harus memindahkan isinya ke root.
+            # 2. EKSTRAKSI TARBALL
+            echo "Mengekstrak deployment.tar.gz..."
+            tar -xzf deployment.tar.gz
+            rm deployment.tar.gz # Hapus file tarball setelah diekstrak
+
+            # 3. EKSTRAKSI DAN PEMINDAHAN KONTEN (Langkah Kritis)
             echo "Memindahkan konten standalone ke root aplikasi..."
 
             # Pindahkan KONTEN dari .next/standalone (server files, node_modules internal) ke DEPLOY_DIR
@@ -85,12 +89,12 @@ jobs:
             # Hapus folder sementara .next/standalone
             rm -rf .next/standalone
 
-            # 3. Instal Dependencies Produksi ke Path Khusus cPanel
+            # 4. Instal Dependencies Produksi ke Path Khusus cPanel
             echo "Memastikan node_modules diarahkan ke path yang benar: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
             npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
             npm install --production 
 
-            # 4. Restart Aplikasi
+            # 5. Restart Aplikasi
             echo "Restart Aplikasi (Trigger cPanel App Manager)..."
             touch app.js
 
