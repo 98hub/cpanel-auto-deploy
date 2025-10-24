@@ -1,52 +1,55 @@
 # .github/workflows/deploy.yml
 
-name: Next.js Deployment to cPanel via SSH
+name: Next.js Deployment ke cPanel via SSH
 
 on:
   push:
     branches:
-      - main
+      - main # Ganti jika branch utama Anda berbeda
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Checkout Source Code
+      - name: 1. Checkout Kode Sumber
         uses: actions/checkout@v4
 
       - name: 2. Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          node-version: '22' 
+          cache: 'npm'
 
-      - name: 3. Install Dependencies and Build (on GitHub Runner)
+      - name: 3. Instal Dependencies dan Lakukan Build (Di Runner GitHub)
         run: |
           npm ci
           npm run build
-          echo "Verifying Next.js build folders:"
-          ls -R .next/standalone || true
+          # Pengecekan Kritis: Pastikan Next.js Standalone berhasil dibuat
+          echo "Verifikasi konten build Next.js (sebelum transfer):"
+          ls -R .next/standalone/server/pages || true
           ls -R .next/static || true
-
-      - name: 4. Transfer Files to cPanel (via SCP)
+          
+      - name: 4. Transfer File ke cPanel (via SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SSH_HOST }}
+          host: ${{ secrets.SSH_HOST }} 
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
-          rm: true
+          port: 22 
+          rm: true 
           debug: true
+          # SOLUSI: Menggunakan wildcard untuk menyalin KONTEN dari standalone (termasuk .next/static yang sudah ada)
+          # Note: Next.js standalone sudah menyertakan node_modules internal dan server.js
           source: |
-            .next/standalone
+            .next/standalone/*
             .next/static
             package.json
             app.js
             public
-          target: ${{ secrets.DEPLOY_DIR }}
+          target: ${{ secrets.DEPLOY_DIR }} 
 
-      - name: 5. Execute Commands on cPanel (via SSH)
+      - name: 5. Eksekusi Perintah di cPanel (via SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -56,17 +59,20 @@ jobs:
           port: 22
           debug: true
           script: |
+            # 1. Aktifkan Virtual Environment
             source ${{ secrets.NODE_ENV_PATH }}
-
+            
+            # 2. Pindah ke Direktori Aplikasi
             cd ${{ secrets.DEPLOY_DIR }}
-
-            echo "Ensuring node_modules is directed to the correct path: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
+            
+            # 3. Instal Dependencies Produksi ke Path Khusus cPanel
+            echo "Memastikan node_modules diarahkan ke path yang benar: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
             npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
-
-            echo "Starting production dependency installation..."
             npm install --production 
-
-            echo "Restarting the application (Trigger cPanel App Manager)..."
+            
+            # 4. Restart Aplikasi
+            echo "Restart Aplikasi (Trigger cPanel App Manager)..."
             touch app.js
+            
+            echo "Deployment Selesai!"
 
-            echo "Deployment Complete!"
