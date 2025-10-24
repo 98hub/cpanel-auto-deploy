@@ -1,0 +1,56 @@
+name: Next.js cPanel Auto-Deployment (SSH Git Pull)
+
+on:
+  push:
+    branches:
+      - main 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest 
+    
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+        
+      - name: SSH and Remote Next.js Deployment
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }} 
+          NODE_ENV_PATH: ${{ secrets.NODE_ENV_PATH }} 
+
+        run: |
+          echo "Setting up SSH key for connection..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          echo "Connecting to $SSH_HOST and executing deployment steps..."
+          
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 22 $SSH_USER@$SSH_HOST "
+            
+            cd $DEPLOY_DIR && 
+            
+            echo 'Running git pull...'
+            /usr/bin/git pull origin main
+            
+            # --- NEXT.JS REMOTE DEPLOYMENT STEPS ---
+            
+            echo 'Activating Node.js environment...'
+            source $NODE_ENV_PATH
+            
+            echo 'Installing Node.js dependencies...'
+            npm install
+            
+            echo 'Building Next.js application...'
+            npm run build
+            
+            echo 'Restarting application process...'
+            touch tmp/restart.txt 
+            
+          "
+          echo "Deployment process finished successfully!"
