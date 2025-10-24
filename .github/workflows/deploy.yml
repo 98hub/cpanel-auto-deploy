@@ -27,7 +27,24 @@ jobs:
           ls -ld .next/standalone || true # Hanya cek direktori induk
           ls -R .next/static || true
 
-      - name: 4. Transfer File ke cPanel (via SCP)
+      - name: 4a. Transfer File Server (Standalone & Config)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: 22
+          rm: false
+          debug: true
+          # Hanya transfer server file dan folder standalone di sini
+          source: |
+            .next/standalone
+            package.json
+            app.js
+          target: ${{ secrets.DEPLOY_DIR }}
+
+      - name: 4b. Transfer File Statis (Static & Public)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -38,12 +55,9 @@ jobs:
           # rm: false di sini karena kita ingin membersihkan file di Langkah 5
           rm: false
           debug: true
-          # SOLUSI ROBUST: Menyalin folder standalone dan static sebagai entitas tunggal
+          # Hanya transfer aset statis di sini
           source: |
-            .next/standalone
             .next/static
-            package.json
-            app.js
             public
           target: ${{ secrets.DEPLOY_DIR }}
 
@@ -63,16 +77,13 @@ jobs:
 
             # 2. EKSTRAKSI DAN PEMINDAHAN KONTEN (Langkah Kritis)
             # Karena SCP menyalin folder .next/standalone, kita harus memindahkan isinya ke root.
-            echo "Memindahkan konten standalone dan static ke root aplikasi..."
+            echo "Memindahkan konten standalone ke root aplikasi..."
 
             # Pindahkan KONTEN dari .next/standalone (server files, node_modules internal) ke DEPLOY_DIR
             mv .next/standalone/* .
 
-            # Hapus folder sementara yang tidak diperlukan lagi
+            # Hapus folder sementara .next/standalone
             rm -rf .next/standalone
-
-            # Pindahkan folder .next/static yang asli (yang disalin di Langkah 4) ke root aplikasi
-            # Note: Next.js mengharapkan .next/static di root saat dijalankan dalam mode standalone.
 
             # 3. Instal Dependencies Produksi ke Path Khusus cPanel
             echo "Memastikan node_modules diarahkan ke path yang benar: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
