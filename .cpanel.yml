@@ -1,0 +1,28 @@
+---
+# File: .cpanel.yml
+# Used by cPanel's Git Version Control feature for automatic deployment.
+# After cPanel performs a 'git pull' to /home/username/autodeploy,
+# it will execute the 'tasks' listed below.
+
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/devstudi/autodeploy/
+    - /bin/echo "Removing old content from the public directory..."
+    - /bin/rm -rf $DEPLOYPATH/*
+
+    - /bin/echo "Copying new content to $DEPLOYPATH..."
+    - /bin/cp -r . $DEPLOYPATH
+
+    - /bin/echo "Entering the Next.js directory..."
+    - cd $DEPLOYPATH
+
+    - /bin/echo "Running npm install..."
+    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm install
+
+    - /bin/echo "Running npm run build..."
+    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm run build
+
+    - /bin/echo "Restarting Node.js application..."
+    - touch tmp/restart.txt
+
+    - /bin/echo "Next.js Deployment Completed!"
