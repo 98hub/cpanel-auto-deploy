@@ -1,28 +1,32 @@
 ---
 # File: .cpanel.yml
 # Used by cPanel's Git Version Control feature for automatic deployment.
-# After cPanel performs a 'git pull' to /home/username/autodeploy,
-# it will execute the 'tasks' listed below.
+# Repository Path: /home/devstudi/repositories/cpanel-auto-deploy (Location where 'git pull' occurs)
+# Application Root: /home/devstudi/autodeploy (Location where the Node.js app runs)
 
 deployment:
   tasks:
     - export DEPLOYPATH=/home/devstudi/autodeploy/
-    - /bin/echo "Removing old content from the public directory..."
+
+    - /bin/echo "Removing old content from Application Root ($DEPLOYPATH)..."
     - /bin/rm -rf $DEPLOYPATH/*
 
-    - /bin/echo "Copying new content to $DEPLOYPATH..."
+    - /bin/echo "Copying new code from Repository to Application Root..."
     - /bin/cp -r . $DEPLOYPATH
 
-    - /bin/echo "Entering the Next.js directory..."
+    - /bin/echo "Navigating to the Next.js Application Root directory..."
     - cd $DEPLOYPATH
 
+    - /bin/echo "Activating Node.js Virtual Environment..."
+    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate
+
     - /bin/echo "Running npm install..."
-    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm install
+    - npm install
 
     - /bin/echo "Running npm run build..."
-    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm run build
+    - npm run build
 
     - /bin/echo "Restarting Node.js application..."
     - touch tmp/restart.txt
 
-    - /bin/echo "Next.js Deployment Completed!"
+    - /bin/echo "Next.js Deployment Completed and Application Restarted!"
