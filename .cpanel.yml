@@ -14,11 +14,11 @@ deployment:
     - /bin/echo "Copying new code from Repository to Application Root..."
     - /bin/cp -r . $DEPLOYPATH
 
-    - /bin/echo "Navigating to the Next.js Application Root directory..."
+    - /bin/echo "Entering Next.js Application Root directory..."
     - cd $DEPLOYPATH
 
     - /bin/echo "Activating Node.js Virtual Environment..."
-    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm install
+    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy
 
     - /bin/echo "Running npm install..."
     - npm install
