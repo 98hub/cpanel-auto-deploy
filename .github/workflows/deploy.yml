@@ -1,3 +1,5 @@
+# .github/workflows/deploy.yml
+
 name: Next.js Deployment to cPanel via SSH
 
 on:
@@ -32,6 +34,7 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
           rm: true
+          debug: true
           source: |
             .next
             package.json
@@ -47,12 +50,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
+          debug: true
           script: |
             source ${{ secrets.NODE_ENV_PATH }}
 
             cd ${{ secrets.DEPLOY_DIR }}
 
-            echo "Ensuring node_modules is linked to the correct path: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
+            echo "Ensuring node_modules is directed to the correct path: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
             npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
 
             echo "Starting production dependency installation..."
