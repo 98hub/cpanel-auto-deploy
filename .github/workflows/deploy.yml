@@ -1,5 +1,3 @@
-# .github/workflows/deploy.yml
-
 name: Next.js Deployment ke cPanel via SSH
 
 on:
@@ -17,37 +15,37 @@ jobs:
       - name: 2. Setup Node.js Environment
         uses: actions/setup-node@v4
         with:
-          node-version: '22' 
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: 3. Instal Dependencies dan Lakukan Build (Di Runner GitHub)
         run: |
           npm ci
           npm run build
-          # Pengecekan Kritis: Pastikan Next.js Standalone berhasil dibuat
+          # Pengecekan: Pastikan folder utama standalone dan static ada
           echo "Verifikasi konten build Next.js (sebelum transfer):"
-          ls -R .next/standalone/server/pages || true
+          ls -ld .next/standalone || true # Hanya cek direktori induk
           ls -R .next/static || true
-          
+
       - name: 4. Transfer File ke cPanel (via SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.SSH_HOST }} 
+          host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22 
-          rm: true 
+          port: 22
+          # rm: false di sini karena kita ingin membersihkan file di Langkah 5
+          rm: false
           debug: true
-          # SOLUSI: Menggunakan wildcard untuk menyalin KONTEN dari standalone (termasuk .next/static yang sudah ada)
-          # Note: Next.js standalone sudah menyertakan node_modules internal dan server.js
+          # SOLUSI ROBUST: Menyalin folder standalone dan static sebagai entitas tunggal
           source: |
-            .next/standalone/*
+            .next/standalone
             .next/static
             package.json
             app.js
             public
-          target: ${{ secrets.DEPLOY_DIR }} 
+          target: ${{ secrets.DEPLOY_DIR }}
 
       - name: 5. Eksekusi Perintah di cPanel (via SSH)
         uses: appleboy/ssh-action@v1.0.3
@@ -59,20 +57,30 @@ jobs:
           port: 22
           debug: true
           script: |
-            # 1. Aktifkan Virtual Environment
+            # 1. Setup Environment dan Pindah ke Direktori Aplikasi
             source ${{ secrets.NODE_ENV_PATH }}
-            
-            # 2. Pindah ke Direktori Aplikasi
             cd ${{ secrets.DEPLOY_DIR }}
-            
+
+            # 2. EKSTRAKSI DAN PEMINDAHAN KONTEN (Langkah Kritis)
+            # Karena SCP menyalin folder .next/standalone, kita harus memindahkan isinya ke root.
+            echo "Memindahkan konten standalone dan static ke root aplikasi..."
+
+            # Pindahkan KONTEN dari .next/standalone (server files, node_modules internal) ke DEPLOY_DIR
+            mv .next/standalone/* .
+
+            # Hapus folder sementara yang tidak diperlukan lagi
+            rm -rf .next/standalone
+
+            # Pindahkan folder .next/static yang asli (yang disalin di Langkah 4) ke root aplikasi
+            # Note: Next.js mengharapkan .next/static di root saat dijalankan dalam mode standalone.
+
             # 3. Instal Dependencies Produksi ke Path Khusus cPanel
             echo "Memastikan node_modules diarahkan ke path yang benar: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
             npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
             npm install --production 
-            
+
             # 4. Restart Aplikasi
             echo "Restart Aplikasi (Trigger cPanel App Manager)..."
             touch app.js
-            
-            echo "Deployment Selesai!"
 
+            echo "Deployment Selesai!"
