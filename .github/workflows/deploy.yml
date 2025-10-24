@@ -57,7 +57,7 @@ jobs:
             npm install --no-audit --force --include=dev
 
             echo 'Building Next.js application...'
-            npm run build --no-turbo
+            npm run build
 
             echo 'Restarting application process...'
             touch tmp/restart.txt 
