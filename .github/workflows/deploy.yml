@@ -3,40 +3,56 @@ name: Next.js cPanel Auto-Deployment (SSH Git Pull)
 on:
   push:
     branches:
-      - main 
+      - main
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest 
-    
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository Code
-        uses: actions/checkout@v4
-        
+        uses: actions:checkout@v4
+
       - name: SSH and Remote Next.js Deployment
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }} 
-          NODE_ENV_PATH: ${{ secrets.NODE_ENV_PATH }} 
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          NODE_ENV_PATH: ${{ secrets.NODE_ENV_PATH }}
+          REPO_URL: ${{ secrets.REPO_URL }}
 
         run: |
           echo "Setting up SSH key for connection..."
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
+
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           echo "Connecting to $SSH_HOST and executing deployment steps..."
-          
+
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -p 22 $SSH_USER@$SSH_HOST "
             
-            cd $DEPLOY_DIR && 
+            # --- START: GIT CHECK AND PULL/CLONE ---
             
-            echo 'Running git pull...'
-            /usr/bin/git pull origin main
+            cd $DEPLOY_DIR
+            
+            if [ ! -d ".git" ]; then
+              echo 'Repository not found. Performing initial GIT CLONE using standard commands...'
+              git clone $REPO_URL temp_repo
+              
+              mv temp_repo/.git .
+              mv temp_repo/* .
+              rm -rf temp_repo
+              
+              echo 'Initial clone completed successfully.'
+            else
+              echo 'Repository found. Performing GIT PULL...'
+              /usr/bin/git pull origin main
+            fi
+            
+            # --- END: GIT CHECK AND PULL/CLONE ---
             
             # --- NEXT.JS REMOTE DEPLOYMENT STEPS ---
             
@@ -44,7 +60,7 @@ jobs:
             source $NODE_ENV_PATH
             
             echo 'Installing Node.js dependencies...'
-            npm install
+            npm install --no-audit --force
             
             echo 'Building Next.js application...'
             npm run build
