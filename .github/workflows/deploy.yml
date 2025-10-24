@@ -36,7 +36,8 @@ jobs:
           rm: true
           debug: true
           source: |
-            .next
+            .next/standalone/
+            .next/static/
             package.json
             app.js
             public
