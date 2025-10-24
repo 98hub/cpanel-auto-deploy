@@ -55,9 +55,9 @@ jobs:
 
             echo 'Installing Node.js dependencies...'
             npm install --no-audit --force --include=dev
-            
+
             echo 'Building Next.js application...'
-            npm run build
+            npx next build --no-turbo
 
             echo 'Restarting application process...'
             touch tmp/restart.txt 
