@@ -1,6 +1,4 @@
-# .github/workflows/deploy.yml
-
-name: Next.js cPanel Auto-Deployment (SSH Git Pull - Fixed)
+name: Next.js Deployment to cPanel via SSH
 
 on:
   push:
@@ -10,53 +8,57 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository Code
+      - name: 1. Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Remote Deployment via SSH
-        uses: appleboy/ssh-action@master
+      - name: 2. Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: 3. Install Dependencies and Build (on GitHub Runner)
+        run: |
+          npm ci
+          npm run build
+
+      - name: 4. Transfer Files to cPanel (via SCP)
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
+          rm: true
+          source: |
+            .next
+            package.json
+            app.js
+            public
+          target: ${{ secrets.DEPLOY_DIR }}
 
+      - name: 5. Execute Commands on cPanel (via SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: 22
           script: |
-            cd ${{ secrets.DEPLOY_DIR }}
-            echo "📁 Current directory: $(pwd)"
-
-            # --- START: GIT CHECK AND PULL/CLONE ---
-            if [ ! -d ".git" ]; then
-              echo '🔄 Repository not found. Performing initial GIT CLONE using HTTPS...'
-              git clone ${{ secrets.REPO_URL }} temp_repo
-              mv temp_repo/.git .
-              mv temp_repo/* .
-              rm -rf temp_repo
-              echo '✅ Initial clone completed successfully.'
-            else
-              echo '🔁 Repository found. Performing GIT PULL...'
-              /usr/bin/git pull origin main
-            fi
-            # --- END: GIT CHECK AND PULL/CLONE ---
-
-            # --- NODE.JS ENVIRONMENT ---
-            echo '⚙️ Activating Node.js environment...'
             source ${{ secrets.NODE_ENV_PATH }}
 
-            echo '🧹 Cleaning old node_modules (fix symlink issues)...'
-            rm -rf node_modules
-            mkdir -p node_modules
+            cd ${{ secrets.DEPLOY_DIR }}
 
-            echo '📦 Installing Node.js dependencies...'
-            npm install --no-audit --force --include=dev
+            echo "Ensuring node_modules is linked to the correct path: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
+            npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
 
-            echo '🏗️ Building Next.js application (no Turbopack)...'
-            NEXT_USE_TURBOPACK=0 npm run build
+            echo "Starting production dependency installation..."
+            npm install --production 
 
-            echo '🔁 Restarting application process...'
-            touch tmp/restart.txt
+            echo "Restarting the application (Trigger cPanel App Manager)..."
+            touch app.js
 
-            echo "✅ Deployment process finished successfully!"
+            echo "Deployment Complete!"
