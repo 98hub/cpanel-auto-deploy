@@ -1,6 +1,6 @@
 # .github/workflows/deploy.yml
 
-name: Next.js cPanel Auto-Deployment (SSH Git Pull)
+name: Next.js cPanel Auto-Deployment (SSH Git Pull - Fixed)
 
 on:
   push:
@@ -18,48 +18,45 @@ jobs:
       - name: Remote Deployment via SSH
         uses: appleboy/ssh-action@master
         with:
-          # Kredensial Koneksi
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }} 
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           port: 22
 
           script: |
             cd ${{ secrets.DEPLOY_DIR }}
-
-            echo "Current directory: $(pwd)"
+            echo "📁 Current directory: $(pwd)"
 
             # --- START: GIT CHECK AND PULL/CLONE ---
-
             if [ ! -d ".git" ]; then
-              echo 'Repository not found. Performing initial GIT CLONE using HTTPS...'
+              echo '🔄 Repository not found. Performing initial GIT CLONE using HTTPS...'
               git clone ${{ secrets.REPO_URL }} temp_repo
-              
               mv temp_repo/.git .
               mv temp_repo/* .
               rm -rf temp_repo
-              
-              echo 'Initial clone completed successfully.'
+              echo '✅ Initial clone completed successfully.'
             else
-              echo 'Repository found. Performing GIT PULL...'
+              echo '🔁 Repository found. Performing GIT PULL...'
               /usr/bin/git pull origin main
             fi
-
             # --- END: GIT CHECK AND PULL/CLONE ---
 
-            # --- NEXT.JS REMOTE DEPLOYMENT STEPS ---
-
-            echo 'Activating Node.js environment...'
+            # --- NODE.JS ENVIRONMENT ---
+            echo '⚙️ Activating Node.js environment...'
             source ${{ secrets.NODE_ENV_PATH }}
 
-            echo 'Installing Node.js dependencies...'
+            echo '🧹 Cleaning old node_modules (fix symlink issues)...'
+            rm -rf node_modules
+            mkdir -p node_modules
+
+            echo '📦 Installing Node.js dependencies...'
             npm install --no-audit --force --include=dev
 
-            echo 'Building Next.js application...'
-            npm run build
+            echo '🏗️ Building Next.js application (no Turbopack)...'
+            NEXT_USE_TURBOPACK=0 npm run build
 
-            echo 'Restarting application process...'
-            touch tmp/restart.txt 
+            echo '🔁 Restarting application process...'
+            touch tmp/restart.txt
 
-            echo "Deployment process finished successfully!"
+            echo "✅ Deployment process finished successfully!"
