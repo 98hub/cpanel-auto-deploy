@@ -18,7 +18,7 @@ deployment:
     - cd $DEPLOYPATH
 
     - /bin/echo "Activating Node.js Virtual Environment..."
-    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate
+    - source /home/devstudi/nodevenv/autodeploy/22/bin/activate && cd /home/devstudi/autodeploy && npm install
 
     - /bin/echo "Running npm install..."
     - npm install
