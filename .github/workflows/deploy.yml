@@ -25,6 +25,11 @@ jobs:
           npm ci
           npm run build
 
+      - name: Define Source Files for Deployment
+        id: files
+        run: |
+          echo "DEPLOY_SOURCES=.next/standalone .next/static package.json app.js public" >> $GITHUB_OUTPUT
+
       - name: 4. Transfer Files to cPanel (via SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -35,12 +40,7 @@ jobs:
           port: 22
           rm: true
           debug: true
-          source: |
-            .next/standalone/
-            .next/static/
-            package.json
-            app.js
-            public
+          source: ${{ steps.files.outputs.DEPLOY_SOURCES }}
           target: ${{ secrets.DEPLOY_DIR }}
 
       - name: 5. Execute Commands on cPanel (via SSH)
