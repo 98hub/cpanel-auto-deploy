@@ -24,8 +24,12 @@ jobs:
       - name: 🏗️ Build Next.js App
         run: npm run build
 
-      - name: 🔍 List files after build
-        run: ls -la && ls -la .next
+      - name: 🔍 Verify build output
+        run: |
+          echo "List main directory:"
+          ls -la
+          echo "List .next directory:"
+          ls -la .next
 
       - name: 📤 Upload build files to server
         uses: appleboy/scp-action@v0.1.7
@@ -34,13 +38,10 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: |
-            .next
-            public
-            package.json
-            app.js
+          source: ".next public package.json app.js"
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
+          strip_components: 0
 
       - name: ⚙️ Restart Node.js App on cPanel
         uses: appleboy/ssh-action@v1.2.0
