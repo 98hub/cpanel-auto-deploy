@@ -28,9 +28,12 @@ jobs:
         run: |
           mkdir -p build-output
           rsync -av --progress ./ build-output/ \
+            --include '.next/***' \
+            --include '.env*' \
             --exclude node_modules \
             --exclude .git \
-            --exclude build-output
+            --exclude build-output \
+            --exclude '.*'
           echo "📁 Build output content:"
           ls -la build-output
 
