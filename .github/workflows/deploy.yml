@@ -24,21 +24,21 @@ jobs:
       - name: 🏗️ Build Next.js App
         run: npm run build
 
-      - name: 🔍 Verify build output
+      - name: 📂 Prepare build-output folder
         run: |
-          echo "List main directory:"
-          ls -la
-          echo "List .next directory:"
-          ls -la .next
+          mkdir -p build-output
+          cp -r .next public package.json app.js build-output/
+          echo "📁 Build output content:"
+          ls -la build-output
 
-      - name: 📤 Upload build files to server
+      - name: 📤 Upload to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: ".next public package.json app.js"
+          source: "build-output/*"
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
           strip_components: 0
