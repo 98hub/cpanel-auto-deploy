@@ -1,19 +1,24 @@
 // app.js
 
-const { createServer } = require("http");
-const { parse } = require("url");
+import { createServer } from "http";
+import { parse } from "url";
+import next from "next";
 
-const nextServer = require("./.next/standalone/server");
+const port = parseInt(process.env.PORT || "3000", 10);
+const dev = process.env.NODE_ENV !== "production";
 
-const port = process.env.PORT || 3000;
+const app = next({ dev });
+const handle = app.getRequestHandler();
 
-const handler = nextServer.default;
+app.prepare().then(() => {
+  createServer((req, res) => {
+    const parsedUrl = parse(req.url, true);
+    handle(req, res, parsedUrl);
+  }).listen(port);
 
-createServer((req, res) => {
-  const parsedUrl = parse(req.url, true);
-  handler(req, res, parsedUrl);
-}).listen(port, (err) => {
-  if (err) throw err;
-  console.log(`> Next.js Standalone App is Ready on http://localhost:${port}`);
-  console.log(`> Running in Production Mode.`);
+  console.log(
+    `✅ Server running on http://localhost:${port} in ${
+      dev ? "development" : "production"
+    } mode`
+  );
 });

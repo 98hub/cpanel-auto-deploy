@@ -1,101 +1,60 @@
-name: Next.js Deployment ke cPanel via SSH
+name: 🚀 Deploy Next.js to cPanel via SSH
 
 on:
   push:
     branches:
-      - main # Ganti jika branch utama Anda berbeda
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 1. Checkout Kode Sumber
+      - name: 🧭 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js Environment
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          node-version: 22
 
-      - name: 3. Instal Dependencies dan Lakukan Build (Di Runner GitHub)
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🏗️ Build Next.js App
+        run: npm run build
+
+      - name: 📁 Prepare Deployment Package
         run: |
-          npm ci
-          npm run build
-          # Pengecekan: Pastikan folder utama standalone dan static ada
-          echo "Verifikasi konten build Next.js (sebelum transfer):"
-          ls -ld .next/standalone || true # Hanya cek direktori induk
-          ls -R .next/static || true
+          mkdir deploy
+          cp -r .next public package.json app.js next.config.js deploy/
+          # Tambahkan file lain yang dibutuhkan aplikasi di server
+          ls -la deploy
 
-      - name: 4. Buat Deployment Tarball
-        run: |
-          set -e # Hentikan eksekusi jika perintah tar gagal
-          echo "Membuat deployment tarball: deployment.tar.gz"
-          # Membuat tarball berisi semua yang dibutuhkan untuk standalone deployment
-          # --exclude='node_modules' (node_modules di root tidak perlu ditransfer)
-          tar -zcf deployment.tar.gz \
-            --exclude='node_modules' \
-            .next/standalone \
-            .next/static \
-            package.json \
-            app.js \
-            public
-          ls -l deployment.tar.gz # Verifikasi file dibuat dan ukurannya > 0
-
-      - name: 4b. Verifikasi Tarball Sebelum Transfer
-        run: |
-          echo "Isi direktori kerja sebelum SCP:"
-          ls -l deployment.tar.gz
-
-      - name: 5. Transfer File (Single Tarball) ke cPanel (via SCP)
+      - name: 📤 Deploy to cPanel via SSH
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
-          rm: false
-          debug: true
-          # HANYA transfer satu file: tarball yang sudah kita buat
-          source: deployment.tar.gz
+          source: "deploy/*"
           target: ${{ secrets.DEPLOY_DIR }}
+          strip_components: 1
+          overwrite: true
 
-      - name: 6. Eksekusi Perintah di cPanel (via SSH)
-        uses: appleboy/ssh-action@v1.0.3
+      - name: ⚙️ Restart Node.js App on cPanel
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: 22
-          debug: true
           script: |
-            # 1. Setup Environment dan Pindah ke Direktori Aplikasi
-            source ${{ secrets.NODE_ENV_PATH }}
-            cd ${{ secrets.DEPLOY_DIR }}
-
-            # 2. EKSTRAKSI TARBALL
-            echo "Mengekstrak deployment.tar.gz..."
-            tar -xzf deployment.tar.gz
-            rm deployment.tar.gz # Hapus file tarball setelah diekstrak
-
-            # 3. EKSTRAKSI DAN PEMINDAHAN KONTEN (Langkah Kritis)
-            echo "Memindahkan konten standalone ke root aplikasi..."
-
-            # Pindahkan KONTEN dari .next/standalone (server files, node_modules internal) ke DEPLOY_DIR
-            mv .next/standalone/* .
-
-            # Hapus folder sementara .next/standalone
-            rm -rf .next/standalone
-
-            # 4. Instal Dependencies Produksi ke Path Khusus cPanel
-            echo "Memastikan node_modules diarahkan ke path yang benar: ${{ secrets.NPM_PREFIX_DIR }}/lib/node_modules"
-            npm config set prefix ${{ secrets.NPM_PREFIX_DIR }}
-            npm install --production 
-
-            # 5. Restart Aplikasi
-            echo "Restart Aplikasi (Trigger cPanel App Manager)..."
-            touch app.js
-
-            echo "Deployment Selesai!"
+            echo "🔧 Activating Node.js environment..."
+            ${{ secrets.NODE_ENV_PATH }}
+            echo "📦 Installing production dependencies..."
+            npm ci --omit=dev
+            echo "♻️ Restarting Node.js app..."
+            touch tmp/restart.txt || true
+            echo "✅ Deployment complete!"
