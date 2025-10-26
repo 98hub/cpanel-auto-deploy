@@ -24,14 +24,14 @@ jobs:
       - name: 🏗️ Build Next.js App
         run: npm run build
 
-      - name: 📂 Prepare build-output folder
+      - name: 📂 Prepare build-output folder (exclude node_modules)
         run: |
           mkdir -p build-output
-          cp -r .next public package.json app.js build-output/
+          rsync -av --progress ./ build-output --exclude node_modules --exclude .git
           echo "📁 Build output content:"
           ls -la build-output
 
-      - name: 📤 Upload to server
+      - name: 📤 Upload build-output to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -43,7 +43,7 @@ jobs:
           overwrite: true
           strip_components: 0
 
-      - name: ⚙️ Restart Node.js App on cPanel
+      - name: ⚙️ Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -53,6 +53,9 @@ jobs:
           script: |
             echo "🔧 Activating Node.js environment..."
             ${{ secrets.NODE_ENV_PATH }}
+            echo "📦 Moving files out of build-output..."
+            mv ${{ secrets.DEPLOY_DIR }}/build-output/* ${{ secrets.DEPLOY_DIR }}/
+            rm -rf ${{ secrets.DEPLOY_DIR }}/build-output
             echo "📦 Installing production dependencies..."
             npm ci --omit=dev
             echo "♻️ Restarting Node.js app..."
