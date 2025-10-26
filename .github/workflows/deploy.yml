@@ -27,7 +27,10 @@ jobs:
       - name: 📂 Prepare build-output folder (exclude node_modules)
         run: |
           mkdir -p build-output
-          rsync -av --progress ./ build-output --exclude node_modules --exclude .git
+          rsync -av --progress ./ build-output/ \
+            --exclude node_modules \
+            --exclude .git \
+            --exclude build-output
           echo "📁 Build output content:"
           ls -la build-output
 
@@ -51,13 +54,21 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
-            echo "🔧 Activating Node.js environment..."
-            ${{ secrets.NODE_ENV_PATH }}
-            echo "📦 Moving files out of build-output..."
-            mv ${{ secrets.DEPLOY_DIR }}/build-output/* ${{ secrets.DEPLOY_DIR }}/
-            rm -rf ${{ secrets.DEPLOY_DIR }}/build-output
-            echo "📦 Installing production dependencies..."
-            npm ci --omit=dev
-            echo "♻️ Restarting Node.js app..."
-            touch tmp/restart.txt || true
-            echo "✅ Deployment complete!"
+            echo "🚀 Starting deployment inside Node.js environment..."
+            bash -lc '
+              echo "🔧 Activating environment..."
+              source /home/devstudi/nodevenv/autodeploy/22/bin/activate
+              cd /home/devstudi/autodeploy
+
+              echo "📦 Moving files out of build-output..."
+              mv build-output/* . || true
+              rm -rf build-output
+
+              echo "📦 Installing production dependencies..."
+              npm ci --omit=dev
+
+              echo "♻️ Restarting Node.js app..."
+              touch tmp/restart.txt || true
+
+              echo "✅ Deployment complete!"
+            '
