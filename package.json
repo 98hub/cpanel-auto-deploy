@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "NODE_ENV=production next build",
-    "start": "NODE_ENV=production next start",
+    "start": "NODE_ENV=production node app.js >> server.log 2>&1",
     "lint": "eslint"
   },
   "dependencies": {
