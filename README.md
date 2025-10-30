@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Next.js CI/CD Deployment to cPanel
 
-## Getting Started
+This repository demonstrates a **fully automated CI/CD workflow** that deploys a **Next.js application** from GitHub directly to **cPanel** using SSH — fast, secure, and maintenance-free.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- 🔄 **Automatic Deployment** — Every push to the `main` branch triggers a build and deployment to your cPanel server.
+- 🔐 **Secure SSH Connection** — Uses GitHub Secrets to safely manage credentials.
+- ⚡ **Optimized Deployment** — Bundled as `.tar.gz` for faster file transfers.
+- 🧱 **Complete Next.js Support** — Includes `.next`, `public`, and dependency management.
+- 🧩 **Modular Configuration** — Uses environment secrets for flexible and reusable setup.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧭 Workflow Overview
 
-## Learn More
+GitHub Actions workflow:  
+📂 `.github/workflows/deploy.yml`
 
-To learn more about Next.js, take a look at the following resources:
+### Steps:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Checkout repository
+2. Setup Node.js environment
+3. Install dependencies with `npm ci`
+4. Build Next.js production app (`npm run build`)
+5. Compress build output into `build-output.tar.gz`
+6. Upload to cPanel server via `appleboy/scp-action`
+7. Extract and deploy automatically inside your server environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## ⚙️ Environment Secrets
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Add these in your GitHub repository → **Settings → Secrets → Actions**:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Key                | Description                   |
+| ------------------ | ----------------------------- |
+| `SSH_HOST`         | Server hostname or IP         |
+| `SSH_USER`         | SSH username                  |
+| `SSH_PRIVATE_KEY`  | Private SSH key               |
+| `SSH_PASSPHRASE`   | Optional key passphrase       |
+| `DEPLOY_DIR`       | Target deployment path        |
+| `NODE_MODULES_DIR` | Path to node_modules          |
+| `NODE_ENV_PATH`    | Path to virtualenv activation |
+
+---
+
+## 🧰 Example Deployment Logs
+
+- 🚀 Starting deployment inside Node.js environment...
+- 🔧 Activating environment...
+- 📦 Extracting build-output.tar.gz...
+- ♻️ Restarting Node.js app...
+- ✅ Deployment complete!
+
+---
+
+## 🛡️ Security Notes
+
+- No credentials or private paths are hardcoded — everything is stored securely in GitHub Secrets.
+- SSH key-based authentication only (no passwords).
+- Each deployment runs in a clean, isolated environment.
+
+---
+
+## 💡 Why This Setup?
+
+This setup offers a **production-grade CI/CD pipeline** that:
+
+- Works natively with GitHub → cPanel without external runners
+- Avoids manual FTP uploads or rebuilds
+- Is fully version-controlled and reproducible
+
+---
+
+## 🧑‍💻 Author
+
+**Sumberweb DevOps**  
+Simplifying modern web deployment pipelines for cPanel and Node.js environments.
+
+📫 [Contact or Support](support@sumberweb.com)
+
+---
+
+## 🏁 License
+
+MIT License © 2025 — You’re free to use, modify, and adapt this workflow.
+
+---
+
+### ⭐ If this helped you, consider starring the repository!
