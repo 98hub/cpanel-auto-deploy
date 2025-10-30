@@ -30,11 +30,11 @@ jobs:
           rsync -av --progress ./ build-output/ \
             --include '.next/***' \
             --include '.env*' \
-            --exclude node_modules \
-            --exclude .git \
-            --exclude .github \
-            --exclude build-output \
-            --exclude '.*'
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'build-output' \
+            --exclude '*.log'
           echo "📁 Build output content:"
           ls -la build-output
 
@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "build-output/*"
+          source: "build-output/**"
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
           strip_components: 0
@@ -57,7 +57,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "node_modules/*"
+          source: "node_modules/**"
           target: ${{ secrets.NODE_MODULES_DIR }}
           overwrite: true
           strip_components: 0
@@ -70,6 +70,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
+            set -e
             echo "🚀 Starting deployment inside Node.js environment..."
             bash -lc '
               echo "🔧 Activating environment..."
