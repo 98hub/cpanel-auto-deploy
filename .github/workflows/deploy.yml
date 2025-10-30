@@ -87,47 +87,42 @@
 #               echo "✅ Deployment complete!"
 #             '
 
-name: 🚀 Deploy Next.js to cPanel via SSH
+name: 🚀 Deploy to cPanel via SSH
 
 on:
   push:
     branches:
-      - main
+      - main  # ganti sesuai branch utama kamu
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧭 Checkout Repository
+      # --- 1️⃣ Checkout repository
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 🟢 Setup Node.js
+      # --- 2️⃣ Setup Node.js
+      - name: 🧰 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: 📦 Install Dependencies
-        run: npm ci
+      # --- 3️⃣ Build project
+      - name: 🏗️ Build Project
+        run: |
+          npm ci
+          npm run build
 
-      - name: 🏗️ Build Next.js App
-        run: npm run build
-
-      - name: 📂 Prepare build-output folder
+      # --- 4️⃣ Compress build output
+      - name: 📦 Compress build output
         run: |
           mkdir -p build-output
-          cp -r .next package.json package-lock.json next.config.* tsconfig.* public/ build-output/ 2>/dev/null || true
-          echo "📁 Build output content:"
-          ls -la build-output
+          cp -r .next package.json package-lock.json next.config.* public tsconfig.json build-output/
+          tar -czf build-output.tar.gz -C build-output .
 
-      - name: 🗜️ Compress build-output
-        run: |
-          cd build-output
-          tar -czf ../build-output.tar.gz .
-          cd ..
-          echo "✅ build-output.tar.gz created:"
-          ls -lh build-output.tar.gz
-
+      # --- 5️⃣ Upload build files to server
       - name: 📤 Upload compressed build to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -135,10 +130,12 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "build-output.tar.gz"
+          port: ${{ secrets.SSH_PORT }}
+          source: build-output.tar.gz
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
 
+      # --- 6️⃣ Extract & Deploy on server
       - name: ⚙️ Extract & Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -146,24 +143,34 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
             echo "🚀 Starting deployment inside Node.js environment..."
-            bash -lc '
-              set -e
-              echo "🔧 Activating environment..."
-              source ${{ secrets.NODE_ENV_PATH }} || echo "⚠️ Failed to source NODE_ENV_PATH"
 
-              cd ${{ secrets.DEPLOY_DIR }}
-              echo "📦 Extracting build-output.tar.gz..."
-              tar -xzf build-output.tar.gz
-              rm -f build-output.tar.gz
+            # aktifkan environment Node.js di cPanel (jika ada)
+            if [ -f "${{ secrets.NODE_ENV_PATH }}" ]; then
+              echo "🔧 Activating Node.js environment..."
+              source ${{ secrets.NODE_ENV_PATH }}
+            else
+              echo "⚠️ NODE_ENV_PATH not found, continuing without virtualenv"
+            fi
 
-              echo "📦 Installing dependencies..."
+            cd ${{ secrets.DEPLOY_DIR }}
+
+            echo "📦 Extracting build..."
+            tar -xzf build-output.tar.gz
+            rm -f build-output.tar.gz
+
+            echo "📦 Installing dependencies..."
+            if command -v npm >/dev/null 2>&1; then
               npm ci --omit=dev
+            else
+              echo "❌ npm not found in environment! Check Node.js setup in cPanel"
+              exit 1
+            fi
 
-              echo "♻️ Restarting Node.js app..."
-              mkdir -p tmp
-              touch tmp/restart.txt || true
+            echo "♻️ Restarting app..."
+            mkdir -p tmp
+            touch tmp/restart.txt || true
 
-              echo "✅ Deployment complete!"
-            '
+            echo "✅ Deployment complete!"
