@@ -24,31 +24,31 @@ jobs:
       - name: 🏗️ Build Next.js App
         run: npm run build
 
-      - name: 📂 Prepare build-output folder (exclude node_modules)
+      - name: 📂 Prepare build-output folder
         run: |
           mkdir -p build-output
-          rsync -av --progress ./ build-output/ \
-            --include '.next/***' \
-            --include '.env*' \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'build-output' \
-            --exclude '*.log'
+          cp -r .next package.json package-lock.json next.config.* tsconfig.* public/ build-output/ 2>/dev/null || true
           echo "📁 Build output content:"
           ls -la build-output
 
-      - name: 📤 Upload app files to server
+      - name: 🗜️ Compress build-output
+        run: |
+          cd build-output
+          tar -czf ../build-output.tar.gz .
+          cd ..
+          echo "✅ build-output.tar.gz created:"
+          ls -lh build-output.tar.gz
+
+      - name: 📤 Upload compressed build to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "build-output/**"
+          source: "build-output.tar.gz"
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
-          strip_components: 0
 
       - name: 📦 Upload node_modules to nodevenv
         uses: appleboy/scp-action@v0.1.7
@@ -57,12 +57,12 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "node_modules/**"
+          source: "node_modules/*"
           target: ${{ secrets.NODE_MODULES_DIR }}
           overwrite: true
           strip_components: 0
 
-      - name: ⚙️ Deploy on server
+      - name: ⚙️ Extract & Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -70,20 +70,18 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
-            set -e
             echo "🚀 Starting deployment inside Node.js environment..."
             bash -lc '
               echo "🔧 Activating environment..."
-              source /home/devstudi/nodevenv/autodeploy/22/bin/activate
-              cd ${{ secrets.DEPLOY_DIR }}
+              source ${{ secrets.NODE_ENV_PATH }}
 
-              echo "📦 Moving files out of build-output..."
-              if [ -d "build-output" ]; then
-                mv build-output/* . || true
-                rm -rf build-output
-              fi
+              cd ${{ secrets.DEPLOY_DIR }}
+              echo "📦 Extracting build-output.tar.gz..."
+              tar -xzf build-output.tar.gz
+              rm -f build-output.tar.gz
 
               echo "♻️ Restarting Node.js app..."
+              mkdir -p tmp
               touch tmp/restart.txt || true
 
               echo "✅ Deployment complete!"
