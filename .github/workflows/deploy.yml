@@ -1,3 +1,92 @@
+# name: 🚀 Deploy Next.js to cPanel via SSH
+
+# on:
+#   push:
+#     branches:
+#       - main
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: 🧭 Checkout Repository
+#         uses: actions/checkout@v4
+
+#       - name: 🟢 Setup Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+
+#       - name: 📦 Install Dependencies
+#         run: npm ci
+
+#       - name: 🏗️ Build Next.js App
+#         run: npm run build
+
+#       - name: 📂 Prepare build-output folder
+#         run: |
+#           mkdir -p build-output
+#           cp -r .next package.json package-lock.json next.config.* tsconfig.* public/ build-output/ 2>/dev/null || true
+#           echo "📁 Build output content:"
+#           ls -la build-output
+
+#       - name: 🗜️ Compress build-output
+#         run: |
+#           cd build-output
+#           tar -czf ../build-output.tar.gz .
+#           cd ..
+#           echo "✅ build-output.tar.gz created:"
+#           ls -lh build-output.tar.gz
+
+#       - name: 📤 Upload compressed build to server
+#         uses: appleboy/scp-action@v0.1.7
+#         with:
+#           host: ${{ secrets.SSH_HOST }}
+#           username: ${{ secrets.SSH_USER }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           passphrase: ${{ secrets.SSH_PASSPHRASE }}
+#           source: "build-output.tar.gz"
+#           target: ${{ secrets.DEPLOY_DIR }}
+#           overwrite: true
+
+#       - name: 📦 Upload node_modules to nodevenv
+#         uses: appleboy/scp-action@v0.1.7
+#         with:
+#           host: ${{ secrets.SSH_HOST }}
+#           username: ${{ secrets.SSH_USER }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           passphrase: ${{ secrets.SSH_PASSPHRASE }}
+#           source: "node_modules/*"
+#           target: ${{ secrets.NODE_MODULES_DIR }}
+#           overwrite: true
+#           strip_components: 0
+
+#       - name: ⚙️ Extract & Deploy on server
+#         uses: appleboy/ssh-action@v1.2.0
+#         with:
+#           host: ${{ secrets.SSH_HOST }}
+#           username: ${{ secrets.SSH_USER }}
+#           key: ${{ secrets.SSH_PRIVATE_KEY }}
+#           passphrase: ${{ secrets.SSH_PASSPHRASE }}
+#           script: |
+#             echo "🚀 Starting deployment inside Node.js environment..."
+#             bash -lc '
+#               echo "🔧 Activating environment..."
+#               source ${{ secrets.NODE_ENV_PATH }}
+
+#               cd ${{ secrets.DEPLOY_DIR }}
+#               echo "📦 Extracting build-output.tar.gz..."
+#               tar -xzf build-output.tar.gz
+#               rm -f build-output.tar.gz
+
+#               echo "♻️ Restarting Node.js app..."
+#               mkdir -p tmp
+#               touch tmp/restart.txt || true
+
+#               echo "✅ Deployment complete!"
+#             '
+
 name: 🚀 Deploy Next.js to cPanel via SSH
 
 on:
@@ -50,18 +139,6 @@ jobs:
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
 
-      - name: 📦 Upload node_modules to nodevenv
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: "node_modules/*"
-          target: ${{ secrets.NODE_MODULES_DIR }}
-          overwrite: true
-          strip_components: 0
-
       - name: ⚙️ Extract & Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -72,13 +149,17 @@ jobs:
           script: |
             echo "🚀 Starting deployment inside Node.js environment..."
             bash -lc '
+              set -e
               echo "🔧 Activating environment..."
-              source ${{ secrets.NODE_ENV_PATH }}
+              source ${{ secrets.NODE_ENV_PATH }} || echo "⚠️ Failed to source NODE_ENV_PATH"
 
               cd ${{ secrets.DEPLOY_DIR }}
               echo "📦 Extracting build-output.tar.gz..."
               tar -xzf build-output.tar.gz
               rm -f build-output.tar.gz
+
+              echo "📦 Installing dependencies..."
+              npm ci --omit=dev
 
               echo "♻️ Restarting Node.js app..."
               mkdir -p tmp
