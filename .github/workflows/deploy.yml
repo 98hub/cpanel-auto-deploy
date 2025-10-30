@@ -87,12 +87,12 @@
 #               echo "✅ Deployment complete!"
 #             '
 
-name: 🚀 Deploy to cPanel via SSH
+name: 🚀 Deploy Next.js to cPanel via SSH
 
 on:
   push:
     branches:
-      - main  # ganti sesuai branch utama kamu
+      - main # Jalankan otomatis saat ada push ke branch 'main'
 
 jobs:
   deploy:
@@ -103,26 +103,36 @@ jobs:
       - name: 📦 Checkout Repository
         uses: actions/checkout@v4
 
-      # --- 2️⃣ Setup Node.js
+      # --- 2️⃣ Setup Node.js environment di runner GitHub
       - name: 🧰 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # --- 3️⃣ Build project
-      - name: 🏗️ Build Project
+      # --- 3️⃣ Install dependencies & build project
+      - name: 🏗️ Build Next.js Project
         run: |
           npm ci
           npm run build
 
-      # --- 4️⃣ Compress build output
-      - name: 📦 Compress build output
+      # --- 4️⃣ Siapkan folder hasil build
+      - name: 📂 Prepare build-output folder
         run: |
           mkdir -p build-output
-          cp -r .next package.json package-lock.json next.config.* public tsconfig.json build-output/
-          tar -czf build-output.tar.gz -C build-output .
+          cp -r .next package.json package-lock.json next.config.* tsconfig.* public/ build-output/ 2>/dev/null || true
+          echo "📁 Build output content:"
+          ls -la build-output
 
-      # --- 5️⃣ Upload build files to server
+      # --- 5️⃣ Kompres hasil build
+      - name: 🗜️ Compress build-output
+        run: |
+          cd build-output
+          tar -czf ../build-output.tar.gz .
+          cd ..
+          echo "✅ build-output.tar.gz created:"
+          ls -lh build-output.tar.gz
+
+      # --- 6️⃣ Upload hasil build ke server via SCP
       - name: 📤 Upload compressed build to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -130,12 +140,12 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: ${{ secrets.SSH_PORT }}
-          source: build-output.tar.gz
+          port: 22
+          source: "build-output.tar.gz"
           target: ${{ secrets.DEPLOY_DIR }}
           overwrite: true
 
-      # --- 6️⃣ Extract & Deploy on server
+      # --- 7️⃣ Deploy di server via SSH
       - name: ⚙️ Extract & Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -143,11 +153,11 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          port: ${{ secrets.SSH_PORT }}
+          port: 22
           script: |
             echo "🚀 Starting deployment inside Node.js environment..."
 
-            # aktifkan environment Node.js di cPanel (jika ada)
+            # Aktifkan environment Node.js di cPanel
             if [ -f "${{ secrets.NODE_ENV_PATH }}" ]; then
               echo "🔧 Activating Node.js environment..."
               source ${{ secrets.NODE_ENV_PATH }}
@@ -156,8 +166,7 @@ jobs:
             fi
 
             cd ${{ secrets.DEPLOY_DIR }}
-
-            echo "📦 Extracting build..."
+            echo "📦 Extracting build-output.tar.gz..."
             tar -xzf build-output.tar.gz
             rm -f build-output.tar.gz
 
@@ -169,7 +178,7 @@ jobs:
               exit 1
             fi
 
-            echo "♻️ Restarting app..."
+            echo "♻️ Restarting Node.js app..."
             mkdir -p tmp
             touch tmp/restart.txt || true
 
