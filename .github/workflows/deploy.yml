@@ -32,12 +32,13 @@ jobs:
             --include '.env*' \
             --exclude node_modules \
             --exclude .git \
+            --exclude .github \
             --exclude build-output \
             --exclude '.*'
           echo "📁 Build output content:"
           ls -la build-output
 
-      - name: 📤 Upload build-output to server
+      - name: 📤 Upload app files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -46,6 +47,18 @@ jobs:
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "build-output/*"
           target: ${{ secrets.DEPLOY_DIR }}
+          overwrite: true
+          strip_components: 0
+
+      - name: 📦 Upload node_modules to nodevenv
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          source: "node_modules/*"
+          target: ${{ secrets.NODE_MODULES_DIR }}
           overwrite: true
           strip_components: 0
 
@@ -61,14 +74,13 @@ jobs:
             bash -lc '
               echo "🔧 Activating environment..."
               source /home/devstudi/nodevenv/autodeploy/22/bin/activate
-              cd /home/devstudi/autodeploy
+              cd ${{ secrets.DEPLOY_DIR }}
 
               echo "📦 Moving files out of build-output..."
-              mv build-output/* . || true
-              rm -rf build-output
-
-              echo "📦 Installing production dependencies..."
-              npm ci --omit=dev
+              if [ -d "build-output" ]; then
+                mv build-output/* . || true
+                rm -rf build-output
+              fi
 
               echo "♻️ Restarting Node.js app..."
               touch tmp/restart.txt || true
